@@ -53,14 +53,15 @@ func makeClientAPI(info *PackageInfo, f *File) {
 			}
 
 			resourceName := template.GetResourceName(info)
-			g.Err().Op("=").Qual(microUtils, "NewClient").Call().Dot("Call").Call(
+			errId := template.ID()
+			g.Id(errId).Op(":=").Qual(microUtils, "NewClient").Call().Dot("Call").Call(
 				Lit(resourceName),
 				Lit(fmt.Sprintf("%s.%s", resourceName, rpcMethodName)),
 				Id(request), Id(response),
 			)
-			template.AddIfErrorGuard(g, nil, nil)
+			template.AddIfErrorGuard(g, template.AssignErrToResults(Id(errId), fn.Results), errId, nil)
 
-			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results, response)))
+			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results.List(), response)))
 		}
 
 		f.Func().ListFunc(func(g *Group) {
@@ -70,6 +71,6 @@ func makeClientAPI(info *PackageInfo, f *File) {
 			}
 		}).Id(fn.Name).
 			ParamsFunc(template.CreateSignatureFromArgs(args, info)).
-			ParamsFunc(template.CreateSignatureFromArgs(fn.Results, info)).BlockFunc(body)
+			ParamsFunc(template.CreateSignatureFromArgs(fn.Results.List(), info)).BlockFunc(body)
 	})
 }

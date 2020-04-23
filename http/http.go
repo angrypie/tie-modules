@@ -56,7 +56,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
 					)
 				}, "", "string,")))
-			template.AddIfErrorGuard(g, Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")), Err())
+			template.AddIfErrorGuard(g, Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")), "err", Err())
 		}
 
 		//Create response object
@@ -124,7 +124,7 @@ func ifErrorReturnErrHTTP(scope *Group, statement *Statement) {
 		Qual("net/http", "StatusBadRequest"),
 		Map(String()).String().Values(Dict{Lit("err"): Err().Dot("Error").Call()}),
 	)
-	template.AddIfErrorGuard(scope, statement, ret)
+	template.AddIfErrorGuard(scope, statement, "err", ret)
 }
 
 const firstNotEmptyStrHelper = "firstNotEmptyStrHelper"

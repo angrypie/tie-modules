@@ -68,7 +68,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	handlerBody := func(g *Group) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
-		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC)
+		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(fn))
 		g.Return(Nil())
 	}
 
@@ -94,6 +94,14 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 
 }
 
-func ifErrorReturnErrRPC(scope *Group, statement *Statement) {
-	template.AddIfErrorGuard(scope, statement, Err())
+func ifErrorReturnErrRPC(fn *parser.Function) template.IfErrorGuard {
+	return func(scope *Group, statement *Statement) {
+		template.AddIfErrorGuard(
+			scope,
+			statement,
+			"err",
+			Err(),
+		)
+	}
 }
+
