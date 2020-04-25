@@ -82,7 +82,7 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 }
 
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
-	template.MakeStartRPCServer(info, microModuleId, main, f, func(g *Group, resource, instance string) {
+	template.MakeStartRPCServer(info, main, f, func(g *Group, resource, instance string) {
 		g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
 			Qual(gomicro, "Name").Call(Lit(resource)),
 		)
@@ -104,4 +104,3 @@ func ifErrorReturnErrRPC(fn *parser.Function) template.IfErrorGuard {
 		)
 	}
 }
-

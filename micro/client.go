@@ -33,7 +33,8 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 func makeClientAPI(info *PackageInfo, f *File) {
 
 	cb := func(receiverType string, constructor *parser.Function) {
-		f.Type().Id(receiverType).Struct()
+		t, c := template.ClientReceiverType(receiverType, constructor, info)
+		f.Add(t).Line().Add(c).Line()
 	}
 	template.MakeForEachReceiver(info, cb)
 
