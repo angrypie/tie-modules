@@ -31,9 +31,8 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 }
 
 func makeClientAPI(info *PackageInfo, f *File) {
-
-	cb := func(receiverType string, constructor *parser.Function) {
-		t, c := template.ClientReceiverType(receiverType, constructor, info)
+	cb := func(receiver parser.Field, constructor *parser.Function) {
+		t, c := template.ClientReceiverType(receiver, constructor, info)
 		f.Add(t).Line().Add(c).Line()
 	}
 	template.MakeForEachReceiver(info, cb)
@@ -75,3 +74,4 @@ func makeClientAPI(info *PackageInfo, f *File) {
 			ParamsFunc(template.CreateSignatureFromArgs(fn.Results.List(), info)).BlockFunc(body)
 	})
 }
+
