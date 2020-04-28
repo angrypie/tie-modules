@@ -41,7 +41,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	}
 }
 
-func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
+func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *Group) {
 	_, request, response := template.GetMethodTypes(fn)
 	handlerBody := func(g *Group) {
 		//Bind request params
@@ -90,7 +90,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		g.Id("server").Op(":=").Qual(echoPath, "New").Call()
 
 		//.2 Add handler for each function.
-		template.ForEachFunction(info, true, func(fn *parser.Function) {
+		template.ForEachFunction(info, true, func(fn parser.Function) {
 			handler, _, _ := template.GetMethodTypes(fn)
 
 			route := fmt.Sprintf("/%s", fn.Name)

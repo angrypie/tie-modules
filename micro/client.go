@@ -31,13 +31,13 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 }
 
 func makeClientAPI(info *PackageInfo, f *File) {
-	cb := func(receiver parser.Field, constructor *parser.Function) {
+	cb := func(receiver parser.Field, constructor template.OptionalConstructor) {
 		t, c := template.ClientReceiverType(receiver, constructor, info)
 		f.Add(t).Line().Add(c).Line()
 	}
 	template.MakeForEachReceiver(info, cb)
 
-	template.ForEachFunction(info, true, func(fn *parser.Function) {
+	template.ForEachFunction(info, true, func(fn parser.Function) {
 		args := fn.Arguments
 
 		body := func(g *Group) {
