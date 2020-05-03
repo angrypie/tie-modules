@@ -52,7 +52,7 @@ func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *Group) {
 			g.List(Id("_"), ListFunc(template.CreateArgsListFunc(fn.Arguments, "request", "string,"))).Op("=").
 				List(Lit(0), ListFunc(template.CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 					return Id(firstNotEmptyStrHelper).Call(
-						Id("request").Dot(strings.Title(field.Name)),
+						Id("request").Dot(strings.Title(field.Name())),
 						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
 					)
 				}, "", "string,")))
@@ -95,7 +95,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 			route := fmt.Sprintf("/%s", fn.Name)
 			if fn.Receiver.IsDefined() {
-				route = fmt.Sprintf("%s/%s", fn.Receiver.GetLocalTypeName(), fn.Name)
+				route = fmt.Sprintf("%s/%s", fn.Receiver.TypeName(), fn.Name)
 			}
 
 			g.Id("server").Dot("POST").Call(

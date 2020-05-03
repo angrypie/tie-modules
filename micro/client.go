@@ -31,12 +31,6 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 }
 
 func makeClientAPI(info *PackageInfo, f *File) {
-	cb := func(receiver parser.Field, constructor template.OptionalConstructor) {
-		t, c := template.ClientReceiverType(receiver, constructor, info)
-		f.Add(t).Line().Add(c).Line()
-	}
-	template.MakeForEachReceiver(info, cb)
-
 	template.ForEachFunction(info, true, func(fn parser.Function) {
 		args := fn.Arguments
 
@@ -47,9 +41,17 @@ func makeClientAPI(info *PackageInfo, f *File) {
 			g.Id(response).Op(":=").New(Id(responseType))
 			g.Id(request).Op(":=").New(Id(requestType))
 
+			//Bind method args data to request
 			if len(args) != 0 {
 				g.ListFunc(template.CreateArgsListFunc(args, request)).Op("=").
 					ListFunc(template.CreateArgsListFunc(args))
+			}
+			//Bind receiver data to request
+			if template.HasReceiver(fn) {
+				constructor, ok := info.GetConstructor(fn.Receiver)
+				if ok && !template.HasTopLevelReceiver(constructor.Function, info) {
+					g.Id(request).Dot(template.RequestReceiverKey).Op("=").Id("resource")
+				}
 			}
 
 			resourceName := template.GetResourceName(info)
@@ -66,7 +68,7 @@ func makeClientAPI(info *PackageInfo, f *File) {
 
 		f.Func().ListFunc(func(g *Group) {
 			if template.HasReceiver(fn) {
-				g.Params(Id("resource").Id(fn.Receiver.GetLocalTypeName()))
+				g.Params(Id("resource").Id(fn.Receiver.TypeName()))
 				return
 			}
 		}).Id(fn.Name).
