@@ -15,65 +15,25 @@ func NewClientModule(p *parser.Parser) template.Module {
 
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	info := template.NewPackageInfoFromParser(p)
-	//TODO all modules noods to create upgraded subpackage to make ServicePath reusable,
+	//TODO all modules needs to create upgraded subpackage to make ServicePath reusable,
 	info.SetServicePath(info.Service.Name + "/tie_modules/micromod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	f.Add(template.CreateReqRespTypes(info))
-	f.Add(template.CreateTypeAliases(info))
+	code := template.TemplateClient(info, func(ids template.ClientMethodIds) *Statement {
+		code := Comment("go-micro specific call").Line()
+		code.Id(ids.Err).Op("=").Qual(microUtils, "NewClient").
+			Call().Dot("Call").Call(
+			Lit(ids.Resource),
+			Lit(fmt.Sprintf("%s.%s", ids.Resource, ids.Method)),
+			Id(ids.Request), Id(ids.Response),
+		)
+		return code
+	})
 
-	makeClientAPI(info, f)
+	f.Add(code)
 
 	return &template.Package{
 		Name:  "client",
 		Files: [][]byte{[]byte(f.GoString())},
 	}
 }
-
-func makeClientAPI(info *PackageInfo, f *File) {
-	template.ForEachFunction(info, true, func(fn parser.Function) {
-		args := fn.Arguments
-
-		body := func(g *Group) {
-			rpcMethodName, requestType, responseType := template.GetMethodTypes(fn)
-			request, response := template.ID("request"), template.ID("response")
-
-			g.Id(response).Op(":=").New(Id(responseType))
-			g.Id(request).Op(":=").New(Id(requestType))
-
-			//Bind method args data to request
-			if len(args) != 0 {
-				g.ListFunc(template.CreateArgsListFunc(args, request)).Op("=").
-					ListFunc(template.CreateArgsListFunc(args))
-			}
-			//Bind receiver data to request
-			if template.HasReceiver(fn) {
-				constructor, ok := info.GetConstructor(fn.Receiver)
-				if ok && !template.HasTopLevelReceiver(constructor.Function, info) {
-					g.Id(request).Dot(template.RequestReceiverKey).Op("=").Id("resource")
-				}
-			}
-
-			resourceName := template.GetResourceName(info)
-			errId := template.ID()
-			g.Id(errId).Op(":=").Qual(microUtils, "NewClient").Call().Dot("Call").Call(
-				Lit(resourceName),
-				Lit(fmt.Sprintf("%s.%s", resourceName, rpcMethodName)),
-				Id(request), Id(response),
-			)
-			template.AddIfErrorGuard(g, template.AssignErrToResults(Id(errId), fn.Results), errId, nil)
-
-			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results.List(), response)))
-		}
-
-		f.Func().ListFunc(func(g *Group) {
-			if template.HasReceiver(fn) {
-				g.Params(Id("resource").Id(fn.Receiver.TypeName()))
-				return
-			}
-		}).Id(fn.Name).
-			ParamsFunc(template.CreateSignatureFromArgs(args, info)).
-			ParamsFunc(template.CreateSignatureFromArgs(fn.Results.List(), info)).BlockFunc(body)
-	})
-}
-
