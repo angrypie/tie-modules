@@ -48,7 +48,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	info.SetServicePath(info.Service.Name + "/tie_modules/micromod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	f.Add(template.TemplateServer(info, func(g *Group, resource, instance string) {
+	template.TemplateServer(info, f, func(g *Group, resource, instance string) {
 		g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
 			Qual(gomicro, "Name").Call(Lit(resource)),
 		)
@@ -56,7 +56,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 
 		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Id(instance))
 		g.Id("service").Dot("Run").Call()
-	}))
+	})
 
 	return &template.Package{
 		Name:  "micromod",
