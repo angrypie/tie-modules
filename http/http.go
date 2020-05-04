@@ -31,7 +31,11 @@ func GenerateServer(p *parser.Parser) *template.Package {
 
 		makeStartHTTPServer(info, main, f)
 	})
-	template.MakeHandlers(info, f, makeHTTPHandler)
+
+	template.ForEachFunction(info, true, func(fn parser.Function) {
+		makeHTTPHandler(info, fn, f)
+	})
+
 	template.CreateReqRespTypes(info, f)
 	makeHelpersHTTP(f)
 
