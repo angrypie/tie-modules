@@ -26,7 +26,9 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	f := NewFile(strings.ToLower(httpModuleId))
 
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
-		template.MakeGracefulShutdown(info, main, f)
+		local, global := template.GracefulShutdown(info)
+		main.Add(local)
+		f.Add(global)
 		template.MakeInitService(info, main)
 
 		makeStartHTTPServer(info, main, f)
@@ -43,9 +45,10 @@ func GenerateServer(p *parser.Parser) *template.Package {
 
 func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *Group) {
 	_, request, response := template.GetMethodTypes(fn)
-	handlerBody := func(g *Group) {
+	handlerBody := func() *Statement {
 		//Bind request params
 		//Empty argument needs to avoid errors if no other arguments exist
+		g := Comment("makeHttpHandler body:").Line()
 		arguments := template.CreateCombinedHandlerArgs(fn, info)
 		if len(arguments) != 0 {
 			g.Id("request").Op(":=").New(Id(request))
@@ -56,7 +59,10 @@ func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *Group) {
 						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
 					)
 				}, "", "string,")))
-			template.AddIfErrorGuard(g, Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")), "err", Err())
+			//TODO use *Statement instead of *Group
+			g.BlockFunc(func(g *Group) {
+				template.AddIfErrorGuard(g, Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")), "err", Err())
+			})
 		}
 
 		//Create response object
@@ -66,13 +72,17 @@ func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *Group) {
 			"getEnv":    Id(template.GetEnvHelper),
 			"getHeader": Id(getHeaderHelper).Call(Id("ctx")),
 		}
-		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrHTTP)
+		//TODO use *Statement instead of *Group
+		g.BlockFunc(func(g *Group) {
+			template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrHTTP)
+		})
 
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
+		return g
 	}
 
 	template.MakeHandlerWrapper(
-		handlerBody, info, fn, file,
+		handlerBody, info, fn,
 		Id("ctx").Qual(echoPath, "Context"),
 		Err().Error(),
 	)
@@ -131,7 +141,7 @@ const firstNotEmptyStrHelper = "firstNotEmptyStrHelper"
 const getHeaderHelper = "getHeaderHelper"
 
 func makeHelpersHTTP(f *File) {
-	template.AddGetEnvHelper(f)
+	f.Add(template.AddGetEnvHelper())
 
 	f.Func().Id(firstNotEmptyStrHelper).Params(Id("a"), Id("b").String()).String().Block(
 		If(Id("a").Op("!=").Lit("")).Block(Return(Id("a"))),

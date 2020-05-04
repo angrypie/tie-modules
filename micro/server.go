@@ -48,41 +48,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	info.SetServicePath(info.Service.Name + "/tie_modules/micromod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
-		template.MakeGracefulShutdown(info, main, f)
-		template.MakeInitService(info, main)
-
-		makeStartRPCServer(info, main, f)
-	})
-
-	template.MakeHandlers(info, f, makeRPCHandler)
-	f.Add(template.CreateReqRespTypes(info))
-	template.AddGetEnvHelper(f)
-
-	return &template.Package{
-		Name:  "micromod",
-		Files: [][]byte{[]byte(f.GoString())},
-	}
-}
-
-func makeRPCHandler(info *PackageInfo, fn parser.Function, file *Group) {
-	handlerBody := func(g *Group) {
-		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
-		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(fn))
-		g.Return(Nil())
-	}
-
-	_, request, response := template.GetMethodTypes(fn)
-
-	template.MakeHandlerWrapper(
-		handlerBody, info, fn, file,
-		template.GetRpcHandlerArgsList(request, response),
-		Err().Error(),
-	)
-}
-
-func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
-	template.MakeStartRPCServer(info, main, f, func(g *Group, resource, instance string) {
+	f.Add(template.TemplateServer(info, func(g *Group, resource, instance string) {
 		g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
 			Qual(gomicro, "Name").Call(Lit(resource)),
 		)
@@ -90,17 +56,11 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 
 		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Id(instance))
 		g.Id("service").Dot("Run").Call()
-	})
+	}))
 
-}
-
-func ifErrorReturnErrRPC(fn parser.Function) template.IfErrorGuard {
-	return func(scope *Group, statement *Statement) {
-		template.AddIfErrorGuard(
-			scope,
-			statement,
-			"err",
-			Err(),
-		)
+	return &template.Package{
+		Name:  "micromod",
+		Files: [][]byte{[]byte(f.GoString())},
 	}
 }
+
