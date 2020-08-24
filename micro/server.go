@@ -5,6 +5,8 @@ import (
 
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
+	"github.com/angrypie/tie/template/modutils"
+	"github.com/angrypie/tie/template/protobuf"
 	. "github.com/dave/jennifer/jen"
 )
 
@@ -23,22 +25,29 @@ func NewModule(p *parser.Parser, services []string) template.Module {
 	deps := []template.Module{
 		NewClientModule(p),
 		NewUpgradedModule(p, services),
+		protobuf.NewModule(p),
 	}
-	return template.NewStandartModule("micromod", GenerateServer, p, deps)
+	return modutils.NewStandartModule("micromod", GenerateServer, p, deps)
 }
 
 func NewUpgradedModule(p *parser.Parser, services []string) template.Module {
 	gen := func(p *parser.Parser) *template.Package {
 		return GenerateUpgraded(p, services)
 	}
-	return template.NewStandartModule("upgraded", gen, p, nil)
+	return modutils.NewStandartModule("upgraded", gen, p, nil)
 }
 
 func GenerateUpgraded(p *parser.Parser, services []string) (pkg *template.Package) {
 	p.UpgradeApiImports(services, func(i string) (n string) {
 		return i + "/tie_modules/micromod/client"
 	})
-	files := p.ToFiles()
+	files := []modutils.File{}
+	for _, file := range p.ToFiles() {
+		files = append(files, modutils.File{
+			Name:    file.Name,
+			Content: file.Content,
+		})
+	}
 	pkg = &template.Package{Name: "upgraded", Files: files}
 	return
 }
@@ -58,9 +67,5 @@ func GenerateServer(p *parser.Parser) *template.Package {
 		g.Id("service").Dot("Run").Call()
 	})
 
-	return &template.Package{
-		Name:  "micromod",
-		Files: [][]byte{[]byte(f.GoString())},
-	}
+	return modutils.NewPackage("micromod", "server.go", f.GoString())
 }
-
